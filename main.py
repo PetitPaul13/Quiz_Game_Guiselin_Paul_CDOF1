@@ -202,68 +202,84 @@ import tkinter as tk
 from tkinter import messagebox
 import random
 
-# Initialisation de l'interface graphique
-root = tk.Tk()
-root.title("Jeu de Quiz Historique")
+class Question:
+    def __init__(self, question, choices, answer):
+        self.question = question
+        self.choices = choices
+        self.answer = answer
 
-# Sélection aléatoire de 20 questions au maximum
-selected_questions = random.sample(questions, min(20, len(questions)))
+class Quiz:
+    def __init__(self, questions):
+        self.questions = [Question(**q) for q in questions]
+        random.shuffle(self.questions)
+        self.questions = self.questions[:20]
+        self.score = 0
+        self.current_question = 0
 
-# Label pour afficher le numéro de la question en cours
-question_number_label = tk.Label(root, text="Question: 1/20")
-question_number_label.pack()
+    def check_answer(self, answer):
+        if self.questions[self.current_question].answer == answer:
+            self.score += 1
+        self.current_question += 1
 
-# Label pour afficher le score
-score_label = tk.Label(root, text="Score: 0/20")
-score_label.pack()
+    def has_next_question(self):
+        return self.current_question < len(self.questions)
 
-# Fonction pour mettre à jour le score affiché
-def update_score_label(score):
-    score_label.config(text=f"Score: {score}/{len(selected_questions)}")
+    def get_next_question(self):
+        if self.has_next_question():
+            return self.questions[self.current_question]
+        return None
 
-# Définition de la fonction pour afficher chaque question
-def display_question(question, options, answer, question_number):
-    def check_answer():
-        global score
-        if var.get() == answer:
-            messagebox.showinfo("Résultat", "Bonne réponse! La bonne réponse était: " + options[ord(answer) - ord('A')])
-            score += 1  # Met à jour le score
-            update_score_label(score)  # Met à jour le score affiché
+class QuizGUI:
+    def __init__(self, quiz):
+        self.quiz = quiz
+        self.root = tk.Tk()
+        self.root.title("Jeu de Quiz Historique")
+        self.question_number_label = tk.Label(self.root)
+        self.question_number_label.pack()
+        self.score_label = tk.Label(self.root)
+        self.score_label.pack()
+        self.display_next_question()
+
+    def display_next_question(self):
+        self.question_number_label.config(text=f"Question: {self.quiz.current_question + 1}/{len(self.quiz.questions)}")
+        self.score_label.config(text=f"Score: {self.quiz.score}/{len(self.quiz.questions)}")
+        if self.quiz.has_next_question():
+            question = self.quiz.get_next_question()
+            self.display_question(question.question, question.choices, question.answer)
         else:
-            messagebox.showinfo("Résultat", "Mauvaise réponse! La bonne réponse était: " + options[ord(answer) - ord('A')])
+            messagebox.showinfo("Fin du Quiz", f"Votre score final est {self.quiz.score} sur {len(self.quiz.questions)}.")
+            self.display_replay_button()
 
-        # Passe à la question suivante ou termine le quiz
-        if question_number < len(selected_questions) - 1:
-            display_next(question_number + 1)
-        else:
-            messagebox.showinfo("Fin du Quiz", f"Votre score final est {score} sur {len(selected_questions)}.")
-            root.quit()
+    def display_replay_button(self):
+        for widget in self.root.winfo_children():
+            if widget != self.question_number_label and widget != self.score_label:
+                widget.destroy()
+        tk.Button(self.root, text="Replay", command=self.replay).pack()
 
-    # Efface le contenu actuel de la fenêtre
-        for widget in root.winfo_children():
-            widget.destroy()
+    def replay(self):
+        self.quiz = Quiz(questions)
+        self.display_next_question()
 
-    # Affiche la question et les options
-    tk.Label(root, text=question).pack()
-    var = tk.StringVar(value="L")  # Valeur par défaut pour éviter une sélection vide
-    for option in options:
-        tk.Radiobutton(root, text=option, variable=var, value=option.split(')')[0]).pack()
+    def display_question(self, question, options, answer):
+        for widget in self.root.winfo_children():
+            if widget != self.question_number_label and widget != self.score_label:
+                widget.destroy()
+        tk.Label(self.root, text=question).pack()
+        var = tk.StringVar(value="L")
+        for option in options:
+            tk.Radiobutton(self.root, text=option, variable=var, value=option.split(')')[0]).pack()
+        tk.Button(self.root, text="Valider", command=lambda: self.check_answer(var.get())).pack()
 
-    # Bouton pour soumettre la réponse
-    tk.Button(root, text="Valider", command=check_answer).pack()
+    def check_answer(self, answer):
+        self.quiz.check_answer(answer)
+        self.display_next_question()
 
-# Afficher la première question
-def display_next(question_number):
-    question_data = selected_questions[question_number]
-    question = question_data["question"]
-    options = question_data["choices"]
-    answer = question_data["answer"]
-    display_question(question, options, answer, question_number)
+    def run(self):
+        self.root.mainloop()
 
-# Initialisation du score
-score = 0
-
-display_next(0)  # Commence par la première question
-
-# Boucle principale de l'interface graphique
-root.mainloop()
+# Initialize the quiz with the questions
+quiz = Quiz(questions)
+# Initialize the GUI with the quiz
+gui = QuizGUI(quiz)
+# Run the GUI
+gui.run()
