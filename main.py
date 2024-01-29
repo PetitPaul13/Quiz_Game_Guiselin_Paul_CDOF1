@@ -1,5 +1,4 @@
-# Définition des questions (votre liste existante ici)
-
+# Définition des questions du quiz
 questions = [
     {
         "question": "Quel empereur romain a légalisé le christianisme dans l'Empire romain ?",
@@ -209,12 +208,14 @@ class Question:
         self.answer = answer
 
 class Quiz:
-    def __init__(self, questions):
+    def __init__(self, questions, time_limit):
         self.questions = [Question(**q) for q in questions]
         random.shuffle(self.questions)
         self.questions = self.questions[:20]
         self.score = 0
         self.current_question = 0
+        self.time_limit = time_limit  # in seconds
+
 
     def check_answer(self, answer):
         if self.questions[self.current_question].answer == answer:
@@ -230,15 +231,19 @@ class Quiz:
         return None
 
 class QuizGUI:
-    def __init__(self, quiz):
-        self.quiz = quiz
-        self.root = tk.Tk()
-        self.root.title("Jeu de Quiz Historique")
-        self.question_number_label = tk.Label(self.root)
-        self.question_number_label.pack()
-        self.score_label = tk.Label(self.root)
-        self.score_label.pack()
-        self.display_next_question()
+    def __init__(self, quiz, time_limit):
+            self.quiz = quiz
+            self.time_limit = time_limit  # store the time limit
+            self.root = tk.Tk()
+            self.root.title("Jeu de Quiz Historique")
+            self.question_number_label = tk.Label(self.root)
+            self.question_number_label.pack()
+            self.score_label = tk.Label(self.root)
+            self.score_label.pack()
+            self.time_label = tk.Label(self.root)  # new label to display the remaining time
+            self.time_label.pack()
+            self.timer_id = None  # new attribute to store the countdown timer ID
+            self.display_next_question()
 
     def display_next_question(self):
         self.question_number_label.config(text=f"Question: {self.quiz.current_question + 1}/{len(self.quiz.questions)}")
@@ -257,18 +262,31 @@ class QuizGUI:
         tk.Button(self.root, text="Replay", command=self.replay).pack()
 
     def replay(self):
-        self.quiz = Quiz(questions)
+        self.quiz = Quiz(questions, self.time_limit)  # use the stored time limit
         self.display_next_question()
 
     def display_question(self, question, options, answer):
-        for widget in self.root.winfo_children():
-            if widget != self.question_number_label and widget != self.score_label:
-                widget.destroy()
-        tk.Label(self.root, text=question).pack()
-        var = tk.StringVar(value="L")
-        for option in options:
-            tk.Radiobutton(self.root, text=option, variable=var, value=option.split(')')[0]).pack()
-        tk.Button(self.root, text="Valider", command=lambda: self.check_answer(var.get())).pack()
+            for widget in self.root.winfo_children():
+                if widget not in [self.question_number_label, self.score_label, self.time_label]:
+                    widget.destroy()
+            tk.Label(self.root, text=question).pack()
+            var = tk.StringVar(value="L")
+            for option in options:
+                tk.Radiobutton(self.root, text=option, variable=var, value=option.split(')')[0]).pack()
+            tk.Button(self.root, text="Valider", command=lambda: self.check_answer(var.get())).pack()
+            if self.timer_id is not None:
+                self.root.after_cancel(self.timer_id)  # cancel the previous countdown
+            self.start_countdown(self.quiz.time_limit)  # start the countdown
+
+    def start_countdown(self, time_left):
+            if not self.quiz.has_next_question():
+                return
+            if time_left > 0:
+                self.time_label.config(text=f"Time left: {time_left} seconds")
+                self.timer_id = self.root.after(1000, self.start_countdown, time_left - 1)  # store the countdown timer ID
+            else:
+                self.time_label.config(text="Time's up!")
+                self.check_answer('')  # mark the current question as incorrect
 
     def check_answer(self, answer):
         self.quiz.check_answer(answer)
@@ -278,8 +296,8 @@ class QuizGUI:
         self.root.mainloop()
 
 # Initialize the quiz with the questions
-quiz = Quiz(questions)
-# Initialize the GUI with the quiz
-gui = QuizGUI(quiz)
+quiz = Quiz(questions, 5)
+# Initialize the GUI with the quiz and the time limit
+gui = QuizGUI(quiz, 5)
 # Run the GUI
 gui.run()
